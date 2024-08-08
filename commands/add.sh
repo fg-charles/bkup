@@ -1,8 +1,20 @@
+# Copyright 2024 Charles Faisandier
+# This file is part of bkup.
+# bkup is free software: you can redistribute it and/or modify it under
+# the terms of the GNU General Public License as published by the Free Software
+# Foundation, either version 3 of the License, or (at your option) any later 
+# version.
+# bkup is distributed in the hope that it will be useful, but WITHOUT ANY
+# WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+# PARTICULAR PURPOSE. See the GNU General Public License for more details.
+# You should have received a copy of the GNU General Public License along with
+# bkup. If not, see <https://www.gnu.org/licenses/>. 
 add_to_gitmodules() {
   local relpath=$1; local url=$2
-  echo -e "\n[submodule \"$relpath\"]" >> /.gitmodules
-  echo -e "\tpath = $relpath" >> /.gitmodules
-  echo -e "\turl = $url" >> /.gitmodules
+  echo -e "
+[submodule \"$relpath\"]" >> /.gitmodules
+  echo -e "	path = $relpath" >> /.gitmodules
+  echo -e "	url = $url" >> /.gitmodules
 }
 
 # Adds a git directory as a submodule of another, ensuring that the intended submodule
@@ -83,7 +95,8 @@ filter_roots() {
       $verbose "$path1 is not a root." 1>&2
     fi
   done
-  $verbose -e "root dirs:\n${roots[@]}" 1>&2
+  $verbose -e "root dirs:
+${roots[@]}" 1>&2
   echo ${roots[@]}
 }
 
@@ -104,8 +117,11 @@ get_dirs() {
       $ofunc $path
     fi
   done
-  $verbose -e "\nresulting directories:\n${dirs[@]}" 1>&2
-  echo ${dirs[@]} | sed 's/ /\n/g'
+  $verbose -e "
+resulting directories:
+${dirs[@]}" 1>&2
+  echo ${dirs[@]} | sed 's/ /
+/g'
 }
 
 ensure_git() {
@@ -132,7 +148,3 @@ add() {
     recurse_submod_add $bku_dir $dir/.git
   done
 }
-
-
-
-

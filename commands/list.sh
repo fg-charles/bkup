@@ -1,3 +1,14 @@
+# Copyright 2024 Charles Faisandier
+# This file is part of bkup.
+# bkup is free software: you can redistribute it and/or modify it under
+# the terms of the GNU General Public License as published by the Free Software
+# Foundation, either version 3 of the License, or (at your option) any later 
+# version.
+# bkup is distributed in the hope that it will be useful, but WITHOUT ANY
+# WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+# PARTICULAR PURPOSE. See the GNU General Public License for more details.
+# You should have received a copy of the GNU General Public License along with
+# bkup. If not, see <https://www.gnu.org/licenses/>. 
 # Gets date of latest backup and contents, recursing into contents of submodules.
 
 # Lists files tracked by given commit, recursing into submodules.
@@ -11,7 +22,8 @@ list_files_rec() {
   fi
   git --git-dir=$cur_git_repo ls-tree -r --full-tree $commit
   while read -r o1 o2 o3 o4; do
-    echo -e "\nl$level submodule /$o4 -- $2"
+    echo -e "
+l$level submodule /$o4 -- $2"
     list_files_rec $o3 /$o4/.git $(($level + 1))
   done < <(git --git-dir=$cur_git_repo ls-tree -r --full-tree $commit | grep commit)
 }
@@ -32,5 +44,3 @@ list() {
   get_commit_date $rem_head
   list_files_rec $rem_head $HOME/.bkup.git
 }
-
-
