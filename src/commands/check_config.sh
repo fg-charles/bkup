@@ -9,10 +9,4 @@
 # PARTICULAR PURPOSE. See the GNU General Public License for more details.
 # You should have received a copy of the GNU General Public License along with
 # bkup. If not, see <https://www.gnu.org/licenses/>. 
-
-rmt_user=root           # git server username
-rmt_host=192.3.36.79           # git server ip
-rmt_nm=bkup                  # name to use for remotes
-bkup_dir="$HOME/.bkup.git"   # path to local git directory
-tst_env=`realpath /tmp/`     # path where to create testing environment
-rmt_env=/root/bkup           # path to store remote git directories
+# ###############################################################################

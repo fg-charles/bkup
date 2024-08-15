@@ -1,6 +1,6 @@
 # Copyright 2024 Charles Faisandier
 # This file is part of bkup.
-# bkup is free software: you can redistribute it and/or modify it under
+# bkup is free sourceftware: you can redistribute it and/or modify it under
 # the terms of the GNU General Public License as published by the Free Software
 # Foundation, either version 3 of the License, or (at your option) any later 
 # version.
@@ -9,20 +9,23 @@
 # PARTICULAR PURPOSE. See the GNU General Public License for more details.
 # You should have received a copy of the GNU General Public License along with
 # bkup. If not, see <https://www.gnu.org/licenses/>. 
-alias bkup="git --git-dir=$bkup_dir"
-############################################################
-shift $((OPTIND - 1))
-command=$1; shift;
-$verbose "Processing command name $command..."
-case $command in
-  tst)
-    tst $@;;
-  backup)
-    backup;;
-  add)
-    add $@;;
-  list)
-    list;;
-  *) 
-    bkup $@
-esac
+# ###############################################################################
+
+commands() {
+  local command=$1; shift
+  $verbose "Processing command name $command..."
+  case $command in
+    tst)
+      source $cell_dir/commands/tst.sh $@;;
+    backup)
+      source $cell_dir/commands/backup.sh $@;;
+    add)
+      source $cell_dir/commands/add.sh $@;;
+    list)
+      source $cell_dir/commands/list.sh $@;;
+    *) 
+      bkup $command $@
+  esac
+}
+
+commands "$@"

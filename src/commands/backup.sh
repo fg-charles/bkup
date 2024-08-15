@@ -10,20 +10,9 @@
 # You should have received a copy of the GNU General Public License along with
 # bkup. If not, see <https://www.gnu.org/licenses/>. 
 # Backs up local changes to configured remote
-line="__________________________"
-get_parent_name() {
-  ps -o comm=$PPID
-}
+# ###############################################################################
 
-# Wrapper for better output formatting for git `foreach` commands.
-# Format:
-# <message> <submodule_name>
-# __________________________
-# <command output>
-# __________________________
-# Params:
-# - message: message to replace for <message>
-# - command: command
+# HELPERS
 bkup_forall() {
   local message=$1
   shift
@@ -31,25 +20,21 @@ bkup_forall() {
   bkup submodule foreach --quiet "sh -c 'echo $message \$name; $commands'"
 }
 
+get_parent_name() {
+  ps -o comm= $PPID
+}
 
-# Syncs local changes that are directly in bkup gitdir worktree.
 bkup_root() {
   bkup add -u
   bkup commit -a -m "bkup `get_parent_name`" || :
   bkup push
 }
-# Main backup command function.
-backup() {
-  echo -e "$line
-* backing up submodules...
-$line"
-  bkup_forall "- adding" git add --all
-  bkup_forall "- committing" "git commit -a -m \"bkup `get_parent_name`\" || :"
-  bkup_forall "- pushing" git push $rmt_nm
-  echo -e "$line
-* backing up root directory...
-$line"
-  bkup_root
-  echo -e "$line
-finished!"
-}
+
+# MAIN
+echo "backing up submodules..."
+bkup_forall "- adding" git add --all
+bkup_forall "- committing" "git commit -a -m \"bkup `get_parent_name`\" || :"
+bkup_forall "- pushing" git push $rmt_nm
+echo "backing up root directory..."
+bkup_root
+

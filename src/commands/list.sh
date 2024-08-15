@@ -10,6 +10,9 @@
 # You should have received a copy of the GNU General Public License along with
 # bkup. If not, see <https://www.gnu.org/licenses/>. 
 # Gets date of latest backup and contents, recursing into contents of submodules.
+# ###############################################################################
+
+# HELPERS
 
 # Lists files tracked by given commit, recursing into submodules.
 # Parameter:
@@ -23,7 +26,7 @@ list_files_rec() {
   git --git-dir=$cur_git_repo ls-tree -r --full-tree $commit
   while read -r o1 o2 o3 o4; do
     echo -e "
-l$level submodule /$o4 -- $2"
+    l$level submodule /$o4 -- $2"
     list_files_rec $o3 /$o4/.git $(($level + 1))
   done < <(git --git-dir=$cur_git_repo ls-tree -r --full-tree $commit | grep commit)
 }
@@ -38,9 +41,10 @@ get_rem_head() {
   bkup ls-remote $rmt_nm 2> /dev/null | tail -n 1 | cut -f1
 }
 
-# List command main function.
 list() {
   local rem_head=$(get_rem_head)
   get_commit_date $rem_head
   list_files_rec $rem_head $HOME/.bkup.git
 }
+
+list "$@"

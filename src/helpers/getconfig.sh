@@ -9,4 +9,18 @@
 # PARTICULAR PURPOSE. See the GNU General Public License for more details.
 # You should have received a copy of the GNU General Public License along with
 # bkup. If not, see <https://www.gnu.org/licenses/>. 
-#!/bin/sh
+# ###############################################################################
+
+# prints a given section of the config file.
+# Params:
+# - section: the section to print
+# - config-file: config file path
+readconfig() {
+  local section=$1 config_file=$2
+  # Config sections must be seperated by blank line.
+  # Sed outputs newline and section name before config values, tail command
+  # chops those off.
+  sed -s "/./{H;\$!d} ; x ; /\[$section\]/!d" $config_file | tail -n +3 
+}
+
+readconfig "$@"

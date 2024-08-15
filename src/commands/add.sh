@@ -9,12 +9,18 @@
 # PARTICULAR PURPOSE. See the GNU General Public License for more details.
 # You should have received a copy of the GNU General Public License along with
 # bkup. If not, see <https://www.gnu.org/licenses/>. 
-add_to_gitmodules() {
-  local relpath=$1; local url=$2
-  echo -e "
-[submodule \"$relpath\"]" >> /.gitmodules
-  echo -e "	path = $relpath" >> /.gitmodules
-  echo -e "	url = $url" >> /.gitmodules
+# ###############################################################################
+
+get_gitmodule_entry() {
+  local path=$1 url=$2
+  echo -e "\n[submodule \"$path\"]\n path = $path\n url=$url"
+}
+
+# Helper function; we need relative paths between worktrees.
+get_worktree() {
+  local gitdir=`readlink -f $1`
+  echo `git --git-dir=$gitdir config --get core.worktree\
+    || dirname $gitdir`
 }
 
 # Adds a git directory as a submodule of another, ensuring that the intended submodule
@@ -24,36 +30,54 @@ add_to_gitmodules() {
 # - superproj: intended superproject git dir path.
 # - submod: intended submodule git dir path.
 add_submod() {
-  local superproj=$1; local submod=$2;
-  $verbose "attempting to add $submod as submodule of $superproj..."
-
-  # Helper function; we need relative paths between worktrees.
-  get_worktree() {
-    local gitdir=$1
-    echo `git --git-dir=$gitdir config --get core.worktree\
-      || dirname $gitdir`
-  }
-  local submod_worktree=`get_worktree $submod`
-  local submod_rmt_dir=`basename $submod_worktree`.git
+  local superproj=$1 submod=$2;
+  local submod_name=`basename $(get_worktree $submod)`
+  local submod_rmt_path="$o_rmt_dir/$submod_name.git"
+  $verbose "add_submod -- $2 -> $1"
+  # use temporary remotes for tests.
   if ! [ ${submod#$tst_dir} = $submod ]; then
-    # if submod is inside of $tst_dir, make the remote temporary.
-    submod_rmt_dir="/tmp/$submod_rmt_dir"
-  fi
-  local remote_dest=$rmt_user@$rmt_host:$submod_rmt_dir
-  local grep_txt="$rmt_nm.*$remote_dest"
-  if ! git --git-dir=$submod remote -v | grep -q $grep_txt -; then
-    $verbose "$submod doesn\'t have remote $grep_txt; creating it..."
-    $dry git clone $submod $submod_worktree/.git 2> /dev/null || :
-    $dry scp -r $submod_worktree/.git $remote_dest
-    $dry git --git-dir=$submod remote add $rmt_nm root@$rmt_ip:$submod_rmt_dir
+    submod_rmt_path="/tmp/$submod_name.git"
   fi
 
-  superproj_worktree=`get_worktree $superproj`
-  relpath=`realpath --relative-to=$superproj_worktree $submod`
-  $dry git rm $submod_rmt_dir 2> /dev/null || :
-  local url=root@$rmt_ip:$submod_rmt_dir
-  $verbose "$superproj <- $submod: adding $submod as submodule of $superproj..."
-  $dry git --git-dir=$superproj submodule add $url $relpath || add_to_gitmodules $relpath $url
+  local url=$o_rmt_user@$o_rmt_host:$submod_rmt_path
+  local grep_txt="$o_rmt_nm.*$url"
+  # make sure submod has the remote we're looking for.
+  local remotes=`git --git-dir=$submod remote -v`
+  if ! echo "$remotes" | grep -q $grep_txt -; then
+    $verbose "$submod doesn't have remote $grep_txt; adding it..."
+    $dry git --git-dir=$submod remote rm $o_rmt_nm
+    $dry git --git-dir=$submod remote add $o_rmt_nm $url
+  fi
+  $verbose -e "$submod has desired remote."
+
+  # make sure the remote is actually accessible
+  if ! git fetch $o_rmt_nm 2> /dev/null; then
+    $verbose -e "$o_rmt_nm not available, attempting to create the remote..."
+    local temp_gitdir=/tmp/$submod_name.git
+    $dry rm -rf $temp_gitdir
+    $dry git clone $temp_gitdir
+    $dry scp -r $temp_gitdir $url
+  fi
+  $verbose "remote is accessible"
+
+  local superproj_worktree=`get_worktree $superproj`
+  local path=`realpath --relative-to=$superproj_worktree $(dirname $submod)`
+  cd $superproj_worktree
+  $verbose "attempting to add $submod as submodule of $superproj
+  url: $url path: $path"
+  git --git-dir=$superproj submodule add -f $url $path   
+
+  # git fails to append to /.gitmodules due to lockfile permissions.
+  # this ensures it has an entry.
+  local gitmodule_entry=`echo -e "[submodule \"$path\"]\n path = $path\n url=$url"`
+  local gitmodules=`[ $superproj_worktree = '/' ] &&\
+    echo $superproj_worktree.gitmodules ||\
+    echo $superproj_worktree/.gitmodules`
+  if ! grep -Fqz "$gitmodule_entry" $gitmodules; then
+    $verbose "superproj doesn't have required gitmodules entry, adding it..."
+    echo "$gitmodule_entry" >> $gitmodules
+  fi
+  $verbose "required gitmodules entry found."
 }
 
 # Adds a git directory as a submodule of another git directory, recursively adding
@@ -63,15 +87,16 @@ add_submod() {
 # - superproj: path to superproj git directory.
 # - submod: path to intended submod git directory.
 recurse_submod_add() { 
-  local superproj=$1 ; local submod=$2
+  local superproj=$1 submod=$2
+  
   local submod_wrktree=`dirname $submod`
   local submod_gitdirs=`find $submod_wrktree -mindepth 1 -type d\
     -exec sh -c 'test -d "$1"/\.git' -- {} \; -print -prune`;
-      for gitdir in $submod_gitdirs; do
-        recurse_submod_add $submod $gitdir/.git
-      done
-      add_submod $superproj $submod
-    }
+  for gitdir in $submod_gitdirs; do
+    recurse_submod_add $submod $gitdir/.git
+  done
+  add_submod $superproj $submod
+}
 
 # From a list of directory paths, return only directories that 
 # are not subdirectories of something else on the list.
@@ -95,11 +120,9 @@ filter_roots() {
       $verbose "$path1 is not a root." 1>&2
     fi
   done
-  $verbose -e "root dirs:
-${roots[@]}" 1>&2
+  $verbose -e "root dirs:\n${roots[@]}" 1>&2
   echo ${roots[@]}
 }
-
 
 # Seperates directories from non-directories from a list of paths, applying
 # dirfuc and ofunc to directories and other files respecively. returns
@@ -117,11 +140,8 @@ get_dirs() {
       $ofunc $path
     fi
   done
-  $verbose -e "
-resulting directories:
-${dirs[@]}" 1>&2
-  echo ${dirs[@]} | sed 's/ /
-/g'
+  $verbose -e "resulting directories:\n${dirs[@]}" 1>&2
+  echo ${dirs[@]} | tr ' ' '\n'
 }
 
 ensure_git() {
@@ -139,12 +159,9 @@ attempt_add() {
   fi
 }
 
-# Add command main function.
-add() {
-  $verbose "adding $@..."
-  local dirs=$(get_dirs ensure_git attempt_add $@)
-  local root_dirs=`filter_roots $dirs`
-  for dir in $root_dirs; do
-    recurse_submod_add $bku_dir $dir/.git
-  done
-}
+$verbose "adding $@ ..."
+local dirs=$(get_dirs ensure_git attempt_add $@)
+local root_dirs=`filter_roots $dirs`
+for dir in $root_dirs; do
+  recurse_submod_add $o_bkup_dir $dir/.git
+done

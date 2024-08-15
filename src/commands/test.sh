@@ -9,6 +9,7 @@
 # PARTICULAR PURPOSE. See the GNU General Public License for more details.
 # You should have received a copy of the GNU General Public License along with
 # bkup. If not, see <https://www.gnu.org/licenses/>. 
+# ###############################################################################
 
 tst_dir=`realpath $tst_env/bkup_tst`
 init_add_commit() {
