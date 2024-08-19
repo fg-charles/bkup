@@ -42,30 +42,38 @@ add_submod() {
   local url=$o_rmt_user@$o_rmt_host:$submod_rmt_path
   local grep_txt="$o_rmt_nm.*$url"
   # make sure submod has the remote we're looking for.
-  local remotes=`git --git-dir=$submod remote -v`
+  local submod_a="git --git-dir=$submod"
+  local remotes=`$submod_a remote -v`
   if ! echo "$remotes" | grep -q $grep_txt -; then
     $verbose "$submod doesn't have remote $grep_txt; adding it..."
-    $dry git --git-dir=$submod remote rm $o_rmt_nm
-    $dry git --git-dir=$submod remote add $o_rmt_nm $url
+    $dry $submod_a remote rm $o_rmt_nm
+    $dry $submod_a remote add $o_rmt_nm $url
   fi
   $verbose -e "$submod has desired remote."
 
   # make sure the remote is actually accessible
-  if ! git fetch $o_rmt_nm 2> /dev/null; then
+  if ! $submod_a fetch $o_rmt_nm 2> /dev/null; then
     $verbose -e "$o_rmt_nm not available, attempting to create the remote..."
     local temp_gitdir=/tmp/$submod_name.git
     $dry rm -rf $temp_gitdir
-    $dry git clone $temp_gitdir
+    $dry git clone --bare $submod $temp_gitdir
     $dry scp -r $temp_gitdir $url
   fi
   $verbose "remote is accessible"
 
+  # make sure submodule has a commit checked out
+  if ! $submod_a log; then
+    $submod_a add --all
+    $submod_a commit -a -m 'bkup initial commit'
+  fi
+
+  # add the submodule
   local superproj_worktree=`get_worktree $superproj`
   local path=`realpath --relative-to=$superproj_worktree $(dirname $submod)`
   cd $superproj_worktree
   $verbose "attempting to add $submod as submodule of $superproj
   url: $url path: $path"
-  git --git-dir=$superproj submodule add -f $url $path   
+  sudo git --git-dir=$superproj submodule add -f $url $path   
 
   # git fails to append to /.gitmodules due to lockfile permissions.
   # this ensures it has an entry.
@@ -154,7 +162,16 @@ ensure_git() {
 attempt_add() {
   local path=$1
   $verbose "- adding $path to bkup..." 1>&2
-  if ! $dry git --git-dir=$bkup_dir add $path 1>&2; then
+  ! [ -e $path ] && echo "$path doesn't exist" 1>&2 && return 1
+  if ! [ -r $path ]; then
+    echo "user doesn't have required read permission for $path." 1>&2
+    echo "attempt fix: chmod 744 $path? (Y/[n])" 1>&2
+    read choice
+    if [ $choice = 'Y' ]; then
+      sudo chmod 744 $path;
+    fi
+  fi
+  if ! $dry git --git-dir=$o_bkup_dir add $path; then
     echo "warning: failed to add $path" 1>&2
   fi
 }

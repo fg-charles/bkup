@@ -31,7 +31,8 @@ EOF
   local verbose="`[ $o_verbose = true ] && echo 'echo' || echo ': ||'`"
   local dry="`[ $o_dry = true ] && echo 'echo dry:' || echo ''`"
   $verbose -e "options:\n$(set | grep o_)"
-  alias bkup="git --git-dir=$o_bkup_dir"
+  local bkup_a="git --git-dir=$o_bkup_dir"
+  if [ $o_alias = true ]; then $bkup_a $@; exit $?; fi
 
   . $cell_dir/commands.sh $@
 }

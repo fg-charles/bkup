@@ -23,8 +23,10 @@ commands() {
       source $cell_dir/commands/add.sh $@;;
     list)
       source $cell_dir/commands/list.sh $@;;
+    init)
+      source $cell_dir/commands/init.sh $@;;
     *) 
-      bkup $command $@
+      $bkup_a $command $@
   esac
 }
 

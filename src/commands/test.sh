@@ -11,7 +11,7 @@
 # bkup. If not, see <https://www.gnu.org/licenses/>. 
 # ###############################################################################
 
-tst_dir=`realpath $tst_env/bkup_tst`
+# Helper for create env.
 init_add_commit() {
   git init $1
   git --git-dir=$1/.git --work-tree=$1 add --all 
@@ -25,7 +25,7 @@ init_add_commit() {
 #       that are lowercase letters as regular files. Exclude trailing dashes.
 create_env() {
   $verbose 'creating test environment...'
-  rm -rf $tst_dir; mkdir $tst_dir
+  rm -rf $o_tst_dir; mkdir $tst_dir
   local init_env=false
   if [ $1 = "-i" ]; then
     init_env=true
@@ -75,7 +75,6 @@ tst_add() {
   esac
 }
 
-
 tst() {
   local test=$1; shift;
   ! [ $test ] && test='all'
@@ -90,3 +89,5 @@ tst() {
       help
   esac
 }
+
+tst "$@"

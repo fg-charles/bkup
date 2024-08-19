@@ -10,3 +10,13 @@
 # You should have received a copy of the GNU General Public License along with
 # bkup. If not, see <https://www.gnu.org/licenses/>. 
 # ###############################################################################
+
+$bkup_a config --unset core.bare
+$bkup_a config core.worktree /
+$bkup_a config diff.ignoreSubmodules none
+$bkup_a config status.showUntrackedFiles false
+$bkup_a config status.submoduleSummary true
+$bkup_a config push.autoSetupRemote true
+$bkup_a config submodule.recurse true
+$bkup_a config push.autoSetupRemote true
+$bkup_a config pull.ff only

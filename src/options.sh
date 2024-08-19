@@ -38,7 +38,8 @@ options() {
 
   options=$options$'\n'verbose=false
   options=$options$'\n'dry=false
-  while getopts ":vdx" option; do
+  options=$options$'\n'alias=false
+  while getopts ":vda" option; do
     case $option in
       v)
         options=$options$'\n'verbose=true
@@ -46,8 +47,8 @@ options() {
       d)
         options=$options$'\n'dry=true
         ;;
-      x)
-        set -x
+      a)
+        options=$options$'\n'alias=true
         ;;
       \?)
         echo "Error: Invalid option" >&2

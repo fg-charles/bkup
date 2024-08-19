@@ -33,12 +33,12 @@ list_files_rec() {
 
 # Gets (prints to stdout) commit date given commit hash.
 get_commit_date() {
-  bkup show --no-patch --format=%ci $1
+  $bkup_a show --no-patch --format=%ci $1
 }
 
 # Gets (prints to stdout) remote head commit hash.
 get_rem_head() {
-  bkup ls-remote $rmt_nm 2> /dev/null | tail -n 1 | cut -f1
+  $bkup_a ls-remote $rmt_nm 2> /dev/null | tail -n 1 | cut -f1
 }
 
 list() {
