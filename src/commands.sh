@@ -15,8 +15,8 @@ commands() {
   local command=$1; shift
   $verbose "Processing command name $command..."
   case $command in
-    tst)
-      source $cell_dir/commands/tst.sh $@;;
+    test)
+      source $cell_dir/commands/test.sh $@;;
     backup)
       source $cell_dir/commands/backup.sh $@;;
     add)

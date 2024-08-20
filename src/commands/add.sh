@@ -152,33 +152,42 @@ get_dirs() {
   echo ${dirs[@]} | tr ' ' '\n'
 }
 
-ensure_git() {
-  local path=$1
-  if ! [ -d $path/.git ]; then
-    $dry git init $path 1>&2
+# Ensures that the given valid directory path has a valid .git directory
+# at it's trunk, attempt to make it so if not, or error to stdout and exit
+# if not possible.
+# Parameters:
+# - path: a valid directory path
+ensure_worktree() {
+  local path=`readlink -e $1`
+  if ! git --git-dir=$path/.git fsck; then
+    $dry git init $path 1>&2 ||\
+      echo "error ensure_worktree: could not ensure $path is a worktree" 1>&2 &&\
+      exit 1
   fi
 }
 
+# attempts to add a file to the bkup system. warns to stdout if path
+# could not be added.
+# Parameters:
+# path: filepath to attempt to add to bup system.
 attempt_add() {
   local path=$1
-  $verbose "- adding $path to bkup..." 1>&2
-  ! [ -e $path ] && echo "$path doesn't exist" 1>&2 && return 1
-  if ! [ -r $path ]; then
-    echo "user doesn't have required read permission for $path." 1>&2
-    echo "attempt fix: chmod 744 $path? (Y/[n])" 1>&2
-    read choice
-    if [ $choice = 'Y' ]; then
-      sudo chmod 744 $path;
-    fi
-  fi
   if ! $dry git --git-dir=$o_bkup_dir add $path; then
     echo "warning: failed to add $path" 1>&2
   fi
 }
 
-$verbose "adding $@ ..."
-local dirs=$(get_dirs ensure_git attempt_add $@)
-local root_dirs=`filter_roots $dirs`
-for dir in $root_dirs; do
-  recurse_submod_add $o_bkup_dir $dir/.git
-done
+# adds arguments to the bkup system, skipping over and warning the user
+# about any file that cannot be added or is unsensable to add. Files
+# aleady tracked by submodules are considered unsensable. Directories will
+# automatically be added to the highest level submodule that is a parent
+add() {
+  $verbose "adding $@ ..."
+  local dirs=$(get_dirs ensure_git attempt_add $@)
+  local root_dirs=`filter_roots $dirs`
+  for dir in $root_dirs; do
+    recurse_submod_add $o_bkup_dir $dir/.git
+  done
+}
+
+add "$@"
