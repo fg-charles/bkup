@@ -29,4 +29,4 @@ for dir in $gitdirs; do
   git push bkup
 done
 
-rsync -avAXHS --progress /home/cgf/media/ root@$cgf_ip:/root/bkup/media.rsync
+rsync -avAXHS --progress /home/cgf/media/ root@$cgf_ip:/root/bkup/media.rsync/
