@@ -11,31 +11,10 @@
 # You should have received a copy of the GNU General Public License along with
 # bkup. If not, see <https://www.gnu.org/licenses/>. 
 ####################################################################################
-helper() {
-  local helper=$1; shift;
-  . $cell_dir/helpers/${helper}.sh $@
+# Helper that prints error message and aborts progam.
+terminate () {
+  echo $1 2>&1
+  kill $bkup_pid
 }
 
-bkup() {
-  local cell_dir=$(dirname "`readlink -f $0`")
-  local bkup_pid=$$
-
-  # options and config
-  options=`. $cell_dir/options.sh`
-  shift $?
-
-  while read line; do
-    eval "local o_$line"
-  done <<- EOF
-    $options
-EOF
-  local verbose="`[ $o_verbose = true ] && echo 'echo' || echo ': ||'`"
-  local dry="`[ $o_dry = true ] && echo 'echo dry:' || echo ''`"
-  $verbose -e "options:\n$(set | grep o_)"
-  local bkup_a="git --git-dir=$o_bkup_dir"
-  if [ $o_alias = true ]; then $bkup_a $@; exit $?; fi
-
-  . $cell_dir/commands.sh $@
-}
-
-bkup "$@"
+terminate "$@"

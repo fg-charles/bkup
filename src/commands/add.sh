@@ -11,11 +11,99 @@
 # bkup. If not, see <https://www.gnu.org/licenses/>. 
 # ###############################################################################
 
-get_gitmodule_entry() {
-  local path=$1 url=$2
-  echo -e "\n[submodule \"$path\"]\n path = $path\n url=$url"
+# required as param of get_dirs
+# Ensures that the given valid directory path has a valid .git directory
+# at it's trunk, attempt to make it so if not, or error to stdout and exit
+# if not possible.
+# Parameters:
+# - path: a valid directory path
+ensure_worktree() {
+  local path=`readlink -e $1`
+  if ! git --git-dir=$path/.git fsck; then
+    $dry git init $path 1>&2 ||\
+      echo "warning: could not ensure $path is a worktree" 1>&2 &&\
+      return 1
+  fi
 }
 
+# required as param of get_dirs
+# attempts to add a file to the bkup system. warns to stdout if path
+# could not be added. if file is already in the bkup system, directly
+# or through a submodule, refuses to add notifies to stdout.
+# Parameters:
+# - path: filepath to attempt to add to bup system.
+attempt_add() {
+  local path=$1
+  $bkup_a submodule foreach --recursive \
+    "! git ls-files --error-unmatch $path"  
+  # ^ command fails when path already in bkup
+  if ! $?; then  # if it failed...
+    echo "warning: $path already in bkup, skipping..." 1>&2
+  elif ! $dry git --git-dir=$o_bkup_dir add $path; then
+    echo "warning: failed to add $path" 1>&2
+  fi
+}
+
+# Seperates directories from non-directories from a list of paths, applying
+# dirfuc and ofunc to directories and other files respecively. returns
+# directories which were processed by dirfunc successfully.
+# Parameters:
+# - dirfunc: the function to apply to directories
+# - ofunc: function applied to other filetypes
+get_dirs() {
+  $verbose "get_dirs: filtering directories and applying functions..." 1>&2
+  local dirfunc=$1; local ofunc=$2;
+  shift 2
+  local dirs=()
+  for path in $@; do
+    if [ -d $path ]; then
+      $dirfunc $path &&\
+        dirs+=(`realpath $path`)
+    else
+      $ofunc $path
+    fi
+  done
+  $verbose -e "resulting directories:\n${dirs[@]}" 1>&2
+  echo ${dirs[@]} | tr ' ' '\n'
+}
+
+
+
+# From a list of directory paths, return only directories that 
+# are not subdirectories of something else on the list.
+filter_roots() {
+  $verbose "filtering root directories..." 1>&2
+  local roots=()
+  for path1 in $@; do
+    local root=1
+    for path2 in $@; do
+      if [ $path2 = $path1 ]; then
+        continue
+      elif ! [ ${path1#*$path2} = "$path1" ]; then
+        root=0
+        break
+      fi
+    done
+    if [ $root -eq 1 ]; then
+      roots+=($path1)
+      $verbose "$path1 is a root" 1>&2
+    else
+      $verbose "$path1 is not a root." 1>&2
+    fi
+  done
+  $verbose -e "root dirs:\n${roots[@]}" 1>&2
+  echo ${roots[@]}
+}
+
+
+# Takes all directores that aren't true roots and merge them into the
+# existing submodule structure
+merge_roots() {
+  $bkup_a submodule foreach --recurse 'git add --all' # update index
+  $bkup_a ls-files --recurse-submodules --error-unmatched 
+}
+
+# required by add_submod
 # Helper function; we need relative paths between worktrees.
 get_worktree() {
   local gitdir=`readlink -f $1`
@@ -23,6 +111,7 @@ get_worktree() {
     || dirname $gitdir`
 }
 
+# required by recurse_submod_add
 # Adds a git directory as a submodule of another, ensuring that the intended submodule
 # has a functional remote that can be backed up to. Not recursive. Checks that submodule 
 # is not already added.
@@ -73,7 +162,8 @@ add_submod() {
   cd $superproj_worktree
   $verbose "attempting to add $submod as submodule of $superproj
   url: $url path: $path"
-  sudo git --git-dir=$superproj submodule add -f $url $path   
+  sudo git --git-dir=$superproj submodule add -f $url $path ||
+    return 1
 
   # git fails to append to /.gitmodules due to lockfile permissions.
   # this ensures it has an entry.
@@ -96,7 +186,6 @@ add_submod() {
 # - submod: path to intended submod git directory.
 recurse_submod_add() { 
   local superproj=$1 submod=$2
-  
   local submod_wrktree=`dirname $submod`
   local submod_gitdirs=`find $submod_wrktree -mindepth 1 -type d\
     -exec sh -c 'test -d "$1"/\.git' -- {} \; -print -prune`;
@@ -106,88 +195,27 @@ recurse_submod_add() {
   add_submod $superproj $submod
 }
 
-# From a list of directory paths, return only directories that 
-# are not subdirectories of something else on the list.
-filter_roots() {
-  $verbose "filtering root directories..." 1>&2
-  local roots=()
-  for path1 in $@; do
-    local root=1
-    for path2 in $@; do
-      if [ $path2 = $path1 ]; then
-        continue
-      elif ! [ ${path1#*$path2} = "$path1" ]; then
-        root=0
-        break
-      fi
-    done
-    if [ $root -eq 1 ]; then
-      roots+=($path1)
-      $verbose "$path1 is a root" 1>&2
-    else
-      $verbose "$path1 is not a root." 1>&2
-    fi
-  done
-  $verbose -e "root dirs:\n${roots[@]}" 1>&2
-  echo ${roots[@]}
-}
 
-# Seperates directories from non-directories from a list of paths, applying
-# dirfuc and ofunc to directories and other files respecively. returns
-# directories.
-get_dirs() {
-  $verbose "get_dirs: filtering directories and applying functions..." 1>&2
-  local dirfunc=$1; local ofunc=$2;
-  shift 2
-  local dirs=()
-  for path in $@; do
-    if [ -d $path ]; then
-      dirs+=(`realpath $path`)
-      $dirfunc $path
-    else
-      $ofunc $path
-    fi
-  done
-  $verbose -e "resulting directories:\n${dirs[@]}" 1>&2
-  echo ${dirs[@]} | tr ' ' '\n'
-}
 
-# Ensures that the given valid directory path has a valid .git directory
-# at it's trunk, attempt to make it so if not, or error to stdout and exit
-# if not possible.
+# Attempts to add each argument path given to the backup system, in the way
+# described below:
+# - non-existing path: warn user and move on
+# - directory (true root): incorporates already tracked files and submodules
+#      that are children of the directory.
+# - directory (subdir): is incorporated as a new submodule of the highest-level
+#      submodule parent of directory, and all children files are transfered to it.
+# - file/other (true root): attempts add
+# - file/other (subdir): warn and ignore
 # Parameters:
-# - path: a valid directory path
-ensure_worktree() {
-  local path=`readlink -e $1`
-  if ! git --git-dir=$path/.git fsck; then
-    $dry git init $path 1>&2 ||\
-      echo "error ensure_worktree: could not ensure $path is a worktree" 1>&2 &&\
-      exit 1
-  fi
-}
-
-# attempts to add a file to the bkup system. warns to stdout if path
-# could not be added.
-# Parameters:
-# path: filepath to attempt to add to bup system.
-attempt_add() {
-  local path=$1
-  if ! $dry git --git-dir=$o_bkup_dir add $path; then
-    echo "warning: failed to add $path" 1>&2
-  fi
-}
-
-# adds arguments to the bkup system, skipping over and warning the user
-# about any file that cannot be added or is unsensable to add. Files
-# aleady tracked by submodules are considered unsensable. Directories will
-# automatically be added to the highest level submodule that is a parent
+# - paths...: paths to add to the system.
 add() {
   $verbose "adding $@ ..."
-  local dirs=$(get_dirs ensure_git attempt_add $@)
-  local root_dirs=`filter_roots $dirs`
-  for dir in $root_dirs; do
+  # local dirs=$(get_dirs ensure_git attempt_add $@)
+  # local root_dirs=`filter_roots $dirs`
+  # local true_roots=`merge_roots $root_dirs` # roots that are not already backed up.
+  # for dir in $root_dirs; do
     recurse_submod_add $o_bkup_dir $dir/.git
-  done
+  # done
 }
 
 add "$@"

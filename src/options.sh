@@ -25,16 +25,21 @@ options() {
     || echo \"$HOME/.config/bkup/config.ini\"`"
   if ! [ -e $config_path ]; then
     if ! [ -e '/etc/bkup/.profile' ]; then
-      echo -e 'fatal: no config file found anywhere, please create one in the below\
-        filepaths (paths are in decreasing order of precedence):\n$XDG_CONFIG_HOME/\
-        bkup/config.ini\n$HOME/.config/bkup/config.ini\n/etc/bkup/config.ini' >&2
-      echo 'you can also create a new configuration and initiate a system with bkup\
-        init' >&2
-      exit
+      echo -e - << EOF
+        fatal: no config file found anywhere, please create one in the below
+        filepaths (paths are in decreasing order of precedence):
+        $XDG_CONFIG_HOME/bkup/config.ini
+        $HOME/.config/bkup/config.ini
+        /etc/bkup/config.ini
+        you can also create a new configuration and initiate a system with bkup
+        init
+EOF
+      1>&2
     fi 
     config_path='/etc/bkup/.profile'
   fi
-  local options=`helper getconfig general $config_path`
+  options=`helper getconfig general $config_path`
+  if ! $?; then 
 
   options=$options$'\n'verbose=false
   options=$options$'\n'dry=false
