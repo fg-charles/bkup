@@ -11,31 +11,22 @@
 # You should have received a copy of the GNU General Public License along with
 # bkup. If not, see <https://www.gnu.org/licenses/>. 
 ####################################################################################
-helper() {
-  local helper=$1; shift;
-  . $cell_dir/helpers/${helper}.sh $@
-}
 
-bkup() {
-  local cell_dir=$(dirname "`readlink -f $0`")
-  local bkup_pid=$$
+git --git-dir=/home/cgf/.bkup.git add -u
+git --git-dir=/home/cgf/.bkup.git commit -a -m "bkup - automatic backup"
+git --git-dir=/home/cgf/.bkup.git push
 
-  # options and config
-  options=`. $cell_dir/options.sh`
-  shift $?
-
-  while read line; do
-    eval "local o_$line"
-  done <<- EOF
-    $options
+read -r -d '' gitdirs <<'EOF'
+  /home/cgf/.config/nvim/.git
+  /home/cgf/code/mine/bkup/.git
+  /home/cgf/org/.git
 EOF
-  local verbose="`[ $o_verbose = true ] && echo 'echo' || echo ': ||'`"
-  local dry="`[ $o_dry = true ] && echo 'echo dry:' || echo ''`"
-  $verbose -e "options:\n$(set | grep o_)"
-  local bkup_a="git --git-dir=$o_bkup_dir"
-  if [ $o_alias = true ]; then $bkup_a $@; exit $?; fi
 
-  . $cell_dir/commands.sh $@
-}
+for dir in $gitdirs; do
+  cd $dir/..
+  git --git-dir=$dir add --all
+  git commit -a -m "bkup - automatic backup"
+  git push bkup
+done
 
-bkup "$@"
+rsync -avAXHS --progress /home/cgf/media/ root@$cgf_ip:/root/bkup/media.rsync
