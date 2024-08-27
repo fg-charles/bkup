@@ -26,7 +26,7 @@ for dir in $gitdirs; do
   cd $dir/..
   git --git-dir=$dir add --all
   git commit -a -m "bkup - automatic backup"
-  git push bkup
+  git push --force bkup
 done
 
 rsync -avAXHS --progress /home/cgf/media/ root@$cgf_ip:/root/bkup/media.rsync/
