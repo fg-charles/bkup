@@ -1,1 +1,0 @@
-echo tst_init
