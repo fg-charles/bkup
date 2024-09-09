@@ -19,7 +19,7 @@ git --git-dir=/home/cgf/.bkup.git push
 read -r -d '' gitdirs <<'EOF'
   /home/cgf/.config/nvim/.git
   /home/cgf/code/mine/bkup/.git
-  /home/cgf/org/.git
+  /home/cgf/neorg/.git
 EOF
 
 for dir in $gitdirs; do
